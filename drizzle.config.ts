@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
-const connectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || "postgres://dummy:dummy@localhost/dummy";
 if (!connectionString) {
   console.warn("WARNING: DATABASE_URL is required to run drizzle commands. Skipping migration.");
 }
