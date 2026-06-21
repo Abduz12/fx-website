@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { trades } from "@db/schema";
+import { trades, accounts } from "@db/schema";
 
 export const tradeRouter = createRouter({
   // Create a new trade
@@ -49,8 +49,17 @@ export const tradeRouter = createRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
+      
+      const userAccounts = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+        .limit(1);
+      const activeAccount = userAccounts[0];
+
       const result = await db.insert(trades).values({
         userId: ctx.user.id,
+        accountId: activeAccount ? activeAccount.id : null,
         tradeDate: new Date(input.tradeDate),
         tradeTime: input.tradeTime,
         session: input.session,
@@ -119,7 +128,18 @@ export const tradeRouter = createRouter({
     )
     .query(async ({ ctx, input }) => {
       const db = getDb();
+      
+      const userAccounts = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+        .limit(1);
+      const activeAccount = userAccounts[0];
+
       const conditions = [eq(trades.userId, ctx.user.id)];
+      if (activeAccount) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      }
 
       if (input) {
         if (input.market && input.market !== "all") {

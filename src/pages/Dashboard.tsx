@@ -2,6 +2,7 @@ import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   TrendingUp,
   
@@ -12,9 +13,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Activity,
-  DollarSign,
   Percent,
   Clock,
+  Briefcase,
+  Plus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AreaChart,
   Area,
@@ -55,24 +64,44 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const { data: accounts, refetch: refetchAccounts } = trpc.accounts.getAll.useQuery();
+  const activeAccount = accounts?.find(a => a.isDefault);
+
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = trpc.analytics.getDashboardStats.useQuery();
   const { data: equityCurve, refetch: refetchEquity } = trpc.analytics.getEquityCurve.useQuery();
   const { data: monthlyPerf } = trpc.analytics.getMonthlyPerformance.useQuery();
 
   const [isBalanceOpen, setIsBalanceOpen] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
   const [newBalance, setNewBalance] = useState("");
-  const updateProfile = trpc.auth.updateProfile.useMutation({
+  
+  const createAccount = trpc.accounts.create.useMutation({
     onSuccess: () => {
       setIsBalanceOpen(false);
+      setNewAccountName("");
+      setNewBalance("");
+      refetchAccounts();
       refetchStats();
       refetchEquity();
-      // force reload to update user context
-      window.location.reload();
+      toast.success("New account created and set as active!");
+    }
+  });
+
+  const setAccount = trpc.accounts.setDefault.useMutation({
+    onSuccess: () => {
+      refetchAccounts();
+      refetchStats();
+      refetchEquity();
     }
   });
 
   const handleSaveBalance = () => {
-    updateProfile.mutate({ initialBalance: Number(newBalance) });
+    if (!newAccountName || !newBalance) return;
+    createAccount.mutate({ 
+      name: newAccountName, 
+      initialBalance: Number(newBalance),
+      isDefault: true
+    });
   };
 
   const winLossData = stats
@@ -95,28 +124,55 @@ export default function Dashboard() {
             Welcome back, {user?.name || "Trader"}. Here's your trading overview.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {accounts && accounts.length > 0 && (
+            <Select 
+              value={activeAccount?.id.toString()} 
+              onValueChange={(val) => setAccount.mutate({ id: Number(val) })}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Account" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map(acc => (
+                  <SelectItem key={acc.id} value={acc.id.toString()}>
+                    {acc.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Dialog open={isBalanceOpen} onOpenChange={setIsBalanceOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="inline-flex items-center gap-2 text-sm font-medium">
-                <DollarSign className="h-4 w-4" />
-                Set Balance
+                <Plus className="h-4 w-4" />
+                New Account
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Set Initial Account Balance</DialogTitle>
+                <DialogTitle>Create New Account</DialogTitle>
                 <DialogDescription>
-                  Enter the starting balance for your trading account to accurately calculate your current balance.
+                  Start fresh with a new account balance. Old trades won't affect this new account's statistics!
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="balance">Initial Balance ($)</Label>
+                  <Label htmlFor="accName">Account Name</Label>
+                  <Input
+                    id="accName"
+                    placeholder="e.g. July Restart"
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="balance">Starting Balance ($)</Label>
                   <Input
                     id="balance"
                     type="number"
-                    placeholder="e.g. 10000"
+                    placeholder="e.g. 50"
                     value={newBalance}
                     onChange={(e) => setNewBalance(e.target.value)}
                   />
@@ -124,8 +180,8 @@ export default function Dashboard() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsBalanceOpen(false)}>Cancel</Button>
-                <Button onClick={handleSaveBalance} disabled={updateProfile.isPending}>
-                  {updateProfile.isPending ? "Saving..." : "Save"}
+                <Button onClick={handleSaveBalance} disabled={createAccount.isPending}>
+                  {createAccount.isPending ? "Creating..." : "Create Account"}
                 </Button>
               </DialogFooter>
             </DialogContent>

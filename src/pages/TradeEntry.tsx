@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/providers/trpc";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -109,29 +109,46 @@ export default function TradeEntry() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Auto-calculate risk/reward
-  const calculateRR = () => {
+  // Auto-calculate risk/reward on dependency change
+  useEffect(() => {
     const entry = parseFloat(formData.entryPrice);
     const sl = parseFloat(formData.stopLoss);
     const tp = parseFloat(formData.takeProfit);
+    const lot = parseFloat(formData.lotSize);
+    
+    let updates: any = {};
+    let shouldUpdate = false;
 
     if (entry && sl && tp) {
       const risk = Math.abs(entry - sl);
       const reward = Math.abs(tp - entry);
-      const rr = reward / risk;
-      updateField("riskRewardRatio", rr.toFixed(2));
+      
+      if (risk > 0) {
+        const rr = reward / risk;
+        const newRR = rr.toFixed(2);
+        if (newRR !== formData.riskRewardRatio) {
+          updates.riskRewardRatio = newRR;
+          shouldUpdate = true;
+        }
 
-      // Estimate risk amount based on lot size and market
-      const lot = parseFloat(formData.lotSize);
-      if (lot) {
-        const multiplier = getMarketMultiplier(formData.market);
-        const riskAmount = risk * lot * multiplier;
-        updateField("riskAmount", riskAmount.toFixed(2));
-        const rewardAmount = reward * lot * multiplier;
-        updateField("rewardAmount", rewardAmount.toFixed(2));
+        if (lot) {
+          const multiplier = getMarketMultiplier(formData.market);
+          const riskAm = (risk * lot * multiplier).toFixed(2);
+          const rewAm = (reward * lot * multiplier).toFixed(2);
+          
+          if (riskAm !== formData.riskAmount || rewAm !== formData.rewardAmount) {
+            updates.riskAmount = riskAm;
+            updates.rewardAmount = rewAm;
+            shouldUpdate = true;
+          }
+        }
       }
     }
-  };
+
+    if (shouldUpdate) {
+      setFormData((prev) => ({ ...prev, ...updates }));
+    }
+  }, [formData.entryPrice, formData.stopLoss, formData.takeProfit, formData.lotSize, formData.market]);
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
@@ -291,7 +308,6 @@ export default function TradeEntry() {
                   placeholder="1.08000"
                   value={formData.stopLoss}
                   onChange={(e) => updateField("stopLoss", e.target.value)}
-                  onBlur={calculateRR}
                 />
               </div>
               <div>
@@ -302,7 +318,6 @@ export default function TradeEntry() {
                   placeholder="1.09500"
                   value={formData.takeProfit}
                   onChange={(e) => updateField("takeProfit", e.target.value)}
-                  onBlur={calculateRR}
                 />
               </div>
               <div>
@@ -324,6 +339,16 @@ export default function TradeEntry() {
                   placeholder="1.0"
                   value={formData.riskPercent}
                   onChange={(e) => updateField("riskPercent", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Risk Amount ($)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="50.00"
+                  value={formData.riskAmount}
+                  onChange={(e) => updateField("riskAmount", e.target.value)}
                 />
               </div>
               <div>

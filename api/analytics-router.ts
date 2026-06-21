@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { trades } from "@db/schema";
+import { trades, accounts } from "@db/schema";
 import { generateTradingSuggestions } from "./lib/ai";
 
 export const analyticsRouter = createRouter({
@@ -10,10 +10,25 @@ export const analyticsRouter = createRouter({
   getDashboardStats: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
 
+    // Get active account
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+      
+    const activeAccount = userAccounts[0];
+    const initialBalance = activeAccount ? Number(activeAccount.initialBalance) : Number(ctx.user.initialBalance || 0);
+
+    let conditions = [eq(trades.userId, ctx.user.id)];
+    if (activeAccount) {
+      conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+    }
+
     const allTrades = await db
       .select()
       .from(trades)
-      .where(eq(trades.userId, ctx.user.id));
+      .where(and(...conditions));
 
     const closedTrades = allTrades.filter((t) => t.status === "Closed");
     const winningTrades = closedTrades.filter((t) => t.result === "Win");
@@ -34,7 +49,6 @@ export const analyticsRouter = createRouter({
     );
 
     const netPnL = totalProfit - totalLoss;
-    const initialBalance = Number(ctx.user.initialBalance || 0);
     const currentBalance = initialBalance + netPnL;
     const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
 
@@ -127,13 +141,27 @@ export const analyticsRouter = createRouter({
     .input(z.object({ period: z.string().optional() }).optional())
     .query(async ({ ctx }) => {
       const db = getDb();
+      
+      const userAccounts = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+        .limit(1);
+      const activeAccount = userAccounts[0];
+      const initialBalance = activeAccount ? Number(activeAccount.initialBalance) : Number(ctx.user.initialBalance || 0);
+      
+      let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+      if (activeAccount) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      }
+
       const closedTrades = await db
         .select()
         .from(trades)
-        .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")))
+        .where(and(...conditions))
         .orderBy(trades.tradeDate);
 
-      let runningBalance = Number(ctx.user.initialBalance || 0);
+      let runningBalance = initialBalance;
       const equityCurve = closedTrades.map((trade) => {
         runningBalance += Number(trade.profitLoss || 0);
         return {

@@ -117,10 +117,28 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// Accounts table
+export const accounts = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  userId: bigint("userId", { mode: "number" }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  initialBalance: numeric("initialBalance", { precision: 18, scale: 2 }).default("0").notNull(),
+  isDefault: boolean("isDefault").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+export type Account = typeof accounts.$inferSelect;
+export type InsertAccount = typeof accounts.$inferInsert;
+
 // Trades table
 export const trades = pgTable("trades", {
   id: serial("id").primaryKey(),
   userId: bigint("userId", { mode: "number" }).notNull(),
+  accountId: bigint("accountId", { mode: "number" }),
   
   // Basic Information
   tradeDate: date("tradeDate").notNull(),

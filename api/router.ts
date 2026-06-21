@@ -1,4 +1,5 @@
 import { authRouter } from "./auth-router";
+import { accountsRouter } from "./accounts-router";
 import { tradeRouter } from "./trade-router";
 import { psychologyRouter } from "./psychology-router";
 import { rulesRouter } from "./rules-router";
@@ -11,6 +12,7 @@ import { createRouter, publicQuery } from "./middleware";
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
   auth: authRouter,
+  accounts: accountsRouter,
   trade: tradeRouter,
   psychology: psychologyRouter,
   rules: rulesRouter,
