@@ -2,7 +2,7 @@ import { createRouter, authedQuery } from "./middleware";
 import { z } from "zod";
 import { getDb } from "./queries/connection";
 import { accounts, trades } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, not } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const accountsRouter = createRouter({
@@ -110,7 +110,21 @@ export const accountsRouter = createRouter({
       }
       
       if (acc[0].isDefault) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete default account" });
+        // Find another account to set as default
+        const otherAccounts = await db
+          .select()
+          .from(accounts)
+          .where(and(eq(accounts.userId, ctx.user.id), not(eq(accounts.id, input.id))))
+          .limit(1);
+          
+        if (otherAccounts.length === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot delete your only account" });
+        }
+        
+        await db
+          .update(accounts)
+          .set({ isDefault: true })
+          .where(eq(accounts.id, otherAccounts[0].id));
       }
       
       await db.delete(accounts).where(eq(accounts.id, input.id));

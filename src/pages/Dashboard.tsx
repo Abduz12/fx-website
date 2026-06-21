@@ -18,6 +18,7 @@ import {
   Briefcase,
   Plus,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function Dashboard() {
   const { data: monthlyPerf } = trpc.analytics.getMonthlyPerformance.useQuery();
 
   const [isBalanceOpen, setIsBalanceOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newBalance, setNewBalance] = useState("");
   
@@ -85,6 +87,19 @@ export default function Dashboard() {
       refetchStats();
       refetchEquity();
       toast.success("New account created and set as active!");
+    }
+  });
+
+  const deleteAccount = trpc.accounts.delete.useMutation({
+    onSuccess: () => {
+      setIsDeleteOpen(false);
+      refetchAccounts();
+      refetchStats();
+      refetchEquity();
+      toast.success("Account deleted");
+    },
+    onError: (error) => {
+      toast.error(error.message);
     }
   });
 
@@ -127,21 +142,49 @@ export default function Dashboard() {
         </div>
         <div className="flex gap-2 items-center">
           {accounts && accounts.length > 0 && (
-            <Select 
-              value={activeAccount?.id.toString()} 
-              onValueChange={(val) => setAccount.mutate({ id: Number(val) })}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Account" />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts.map(acc => (
-                  <SelectItem key={acc.id} value={acc.id.toString()}>
-                    {acc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1">
+              <Select 
+                value={activeAccount?.id.toString()} 
+                onValueChange={(val) => setAccount.mutate({ id: Number(val) })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select Account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map(acc => (
+                    <SelectItem key={acc.id} value={acc.id.toString()}>
+                      {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Delete Account</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete '{activeAccount?.name}'? This will permanently delete all trades in this account. This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => activeAccount && deleteAccount.mutate({ id: activeAccount.id })}
+                      disabled={deleteAccount.isPending}
+                    >
+                      {deleteAccount.isPending ? "Deleting..." : "Delete Account"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           )}
 
           <Dialog open={isBalanceOpen} onOpenChange={setIsBalanceOpen}>

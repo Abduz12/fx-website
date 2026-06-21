@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, asc } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { trades, accounts } from "@db/schema";
@@ -138,7 +138,18 @@ export const tradeRouter = createRouter({
 
       const conditions = [eq(trades.userId, ctx.user.id)];
       if (activeAccount) {
-        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+        const mainAccount = await db
+          .select()
+          .from(accounts)
+          .where(eq(accounts.userId, ctx.user.id))
+          .orderBy(asc(accounts.createdAt))
+          .limit(1);
+          
+        if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+          conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+        } else {
+          conditions.push(eq(trades.accountId, activeAccount.id));
+        }
       }
 
       if (input) {
