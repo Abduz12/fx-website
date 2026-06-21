@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { env } from "./env";
 
 export async function generateTradingSuggestions(stats: any, trades: any[]): Promise<string[]> {
@@ -9,7 +9,8 @@ export async function generateTradingSuggestions(stats: any, trades: any[]): Pro
       return generateDefaultSuggestions(stats);
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     // Prepare data for the prompt
     const prompt = `
@@ -27,12 +28,8 @@ export async function generateTradingSuggestions(stats: any, trades: any[]): Pro
       Return ONLY the suggestions, separated by a newline (no numbers, no bullet points).
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-
-    const text = response.text;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
     if (!text) {
       return generateDefaultSuggestions(stats);
     }
