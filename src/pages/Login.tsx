@@ -17,7 +17,16 @@ function getOAuthUrl() {
   return url.toString();
 }
 
+import { useAuth } from "@/hooks/useAuth";
+import { Navigate } from "react-router";
+
 export default function Login() {
+  const { isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left side - Branding */}
