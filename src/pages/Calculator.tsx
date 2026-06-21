@@ -2,14 +2,23 @@ import { useState, useEffect } from "react";
 import { Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, Percent, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { trpc } from "@/providers/trpc";
 
 export default function Calculator() {
+  const { data: stats } = trpc.analytics.getDashboardStats.useQuery();
+  
   const [accountSize, setAccountSize] = useState("10000");
   const [riskPercent, setRiskPercent] = useState("1");
   const [stopLoss, setStopLoss] = useState("50");
   const [entryPrice, setEntryPrice] = useState("2000");
   const [takeProfit, setTakeProfit] = useState("2100");
   const [pipValue, setPipValue] = useState("10");
+
+  useEffect(() => {
+    if (stats?.currentBalance) {
+      setAccountSize(String(stats.currentBalance));
+    }
+  }, [stats?.currentBalance]);
 
   const [results, setResults] = useState({
     riskAmount: 0,
