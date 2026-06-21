@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getMarketMultiplier } from "@/lib/utils";
 
 export default function TradeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -79,14 +80,8 @@ export default function TradeDetail() {
     const isBuy = trade?.direction === "Buy";
 
     // Simplified P&L calculation
-    let pnl = 0;
-    if (trade?.market.includes("XAUUSD")) {
-      pnl = isBuy ? (exit - entry) * lot * 100 : (entry - exit) * lot * 100;
-    } else if (trade?.market.includes("JPY")) {
-      pnl = isBuy ? (exit - entry) * lot * 1000 : (entry - exit) * lot * 1000;
-    } else {
-      pnl = isBuy ? (exit - entry) * lot * 100000 : (entry - exit) * lot * 100000;
-    }
+    const multiplier = getMarketMultiplier(trade?.market || "EURUSD");
+    const pnl = isBuy ? (exit - entry) * lot * multiplier : (entry - exit) * lot * multiplier;
 
     const pnlPercent = (pnl / (entry * lot * 1000)) * 100;
 

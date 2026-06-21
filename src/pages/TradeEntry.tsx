@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getMarketMultiplier } from "@/lib/utils";
 
 const markets = [
   "XAUUSD",
@@ -120,12 +121,13 @@ export default function TradeEntry() {
       const rr = reward / risk;
       updateField("riskRewardRatio", rr.toFixed(2));
 
-      // Estimate risk amount based on lot size (simplified)
+      // Estimate risk amount based on lot size and market
       const lot = parseFloat(formData.lotSize);
       if (lot) {
-        const riskAmount = risk * lot * 100000; // Simplified for forex
+        const multiplier = getMarketMultiplier(formData.market);
+        const riskAmount = risk * lot * multiplier;
         updateField("riskAmount", riskAmount.toFixed(2));
-        const rewardAmount = reward * lot * 100000;
+        const rewardAmount = reward * lot * multiplier;
         updateField("rewardAmount", rewardAmount.toFixed(2));
       }
     }
