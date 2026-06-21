@@ -1,6 +1,7 @@
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router";
+import { useState } from "react";
 import {
   TrendingUp,
   
@@ -16,6 +17,18 @@ import {
   Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AreaChart,
   Area,
@@ -42,9 +55,25 @@ export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data: stats, isLoading: statsLoading } = trpc.analytics.getDashboardStats.useQuery();
-  const { data: equityCurve } = trpc.analytics.getEquityCurve.useQuery();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = trpc.analytics.getDashboardStats.useQuery();
+  const { data: equityCurve, refetch: refetchEquity } = trpc.analytics.getEquityCurve.useQuery();
   const { data: monthlyPerf } = trpc.analytics.getMonthlyPerformance.useQuery();
+
+  const [isBalanceOpen, setIsBalanceOpen] = useState(false);
+  const [newBalance, setNewBalance] = useState("");
+  const updateProfile = trpc.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      setIsBalanceOpen(false);
+      refetchStats();
+      refetchEquity();
+      // force reload to update user context
+      window.location.reload();
+    }
+  });
+
+  const handleSaveBalance = () => {
+    updateProfile.mutate({ initialBalance: Number(newBalance) });
+  };
 
   const winLossData = stats
     ? [
@@ -67,24 +96,59 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          <Dialog open={isBalanceOpen} onOpenChange={setIsBalanceOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="inline-flex items-center gap-2 text-sm font-medium">
+                <DollarSign className="h-4 w-4" />
+                Set Balance
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Set Initial Account Balance</DialogTitle>
+                <DialogDescription>
+                  Enter the starting balance for your trading account to accurately calculate your current balance.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="balance">Initial Balance ($)</Label>
+                  <Input
+                    id="balance"
+                    type="number"
+                    placeholder="e.g. 10000"
+                    value={newBalance}
+                    onChange={(e) => setNewBalance(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsBalanceOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveBalance} disabled={updateProfile.isPending}>
+                  {updateProfile.isPending ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Button
             onClick={() => navigate("/trades/new")}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2"
           >
             <TrendingUp className="h-4 w-4" />
             New Trade
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <KpiCard
-          title="Net P&L"
-          value={stats ? `$${stats.netPnL.toLocaleString()}` : "—"}
+          title="Current Balance"
+          value={stats ? `$${stats.currentBalance.toLocaleString()}` : "—"}
           icon={DollarSign}
           trend={stats ? (stats.netPnL >= 0 ? "positive" : "negative") : "neutral"}
           isLoading={statsLoading}
+          subtitle={`Net P&L: ${stats ? (stats.netPnL >= 0 ? "+" : "") + "$" + stats.netPnL.toLocaleString() : "—"}`}
         />
         <KpiCard
           title="Win Rate"

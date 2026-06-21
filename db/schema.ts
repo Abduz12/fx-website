@@ -104,6 +104,7 @@ export const users = pgTable("users", {
   password: varchar("password", { length: 255 }).notNull(),
   name: varchar("name", { length: 255 }),
   avatar: text("avatar"),
+  initialBalance: numeric("initialBalance", { precision: 18, scale: 2 }).default("0").notNull(),
   role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt")

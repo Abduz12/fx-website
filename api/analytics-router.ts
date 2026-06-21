@@ -34,6 +34,8 @@ export const analyticsRouter = createRouter({
     );
 
     const netPnL = totalProfit - totalLoss;
+    const initialBalance = Number(ctx.user.initialBalance || 0);
+    const currentBalance = initialBalance + netPnL;
     const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
 
     // Average Risk Reward Ratio
@@ -106,6 +108,8 @@ export const analyticsRouter = createRouter({
       breakEvenCount: breakEvenTrades.length,
       winRate: Math.round(winRate * 100) / 100,
       netPnL: Math.round(netPnL * 100) / 100,
+      initialBalance: Math.round(initialBalance * 100) / 100,
+      currentBalance: Math.round(currentBalance * 100) / 100,
       avgRiskReward: Math.round(avgRR * 100) / 100,
       profitFactor: Math.round(profitFactor * 100) / 100,
       bestDay: bestDay.date ? bestDay : null,
@@ -129,7 +133,7 @@ export const analyticsRouter = createRouter({
         .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")))
         .orderBy(trades.tradeDate);
 
-      let runningBalance = 0;
+      let runningBalance = Number(ctx.user.initialBalance || 0);
       const equityCurve = closedTrades.map((trade) => {
         runningBalance += Number(trade.profitLoss || 0);
         return {

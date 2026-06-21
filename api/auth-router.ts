@@ -13,6 +13,28 @@ import { TRPCError } from "@trpc/server";
 export const authRouter = createRouter({
   me: authedQuery.query((opts) => opts.ctx.user),
   
+  updateProfile: authedQuery
+    .input(
+      z.object({
+        name: z.string().optional(),
+        initialBalance: z.number().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const payload: any = {};
+      if (input.name !== undefined) payload.name = input.name;
+      if (input.initialBalance !== undefined) payload.initialBalance = String(input.initialBalance);
+      
+      if (Object.keys(payload).length > 0) {
+        await db
+          .update(users)
+          .set(payload)
+          .where(eq(users.id, ctx.user.id));
+      }
+      return { success: true };
+    }),
+  
   register: publicQuery
     .input(
       z.object({
