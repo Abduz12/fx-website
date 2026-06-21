@@ -69,8 +69,8 @@ export const tradeRouter = createRouter({
         timeframe: input.timeframe,
         notes: input.notes || null,
         screenshots: input.screenshots || null,
-      });
-      return { id: Number(result[0].insertId) };
+      }).returning({ id: trades.id });
+      return { id: Number(result[0].id) };
     }),
 
   // Close a trade

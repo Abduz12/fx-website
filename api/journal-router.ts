@@ -30,8 +30,8 @@ export const journalRouter = createRouter({
         content: input.content,
         mood: input.mood || null,
         tags: input.tags || null,
-      });
-      return { id: Number(result[0].insertId) };
+      }).returning({ id: journalEntries.id });
+      return { id: Number(result[0].id) };
     }),
 
   list: authedQuery.query(async ({ ctx }) => {

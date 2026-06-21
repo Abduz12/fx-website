@@ -30,8 +30,8 @@ export const goalsRouter = createRouter({
         userId: ctx.user.id,
         targetValue: input.targetValue ? String(input.targetValue) : null,
         currentValue: input.currentValue ? String(input.currentValue) : null,
-      });
-      return { id: Number(result[0].insertId) };
+      }).returning({ id: tradingGoals.id });
+      return { id: Number(result[0].id) };
     }),
 
   list: authedQuery.query(async ({ ctx }) => {

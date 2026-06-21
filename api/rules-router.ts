@@ -25,8 +25,8 @@ export const rulesRouter = createRouter({
       const result = await db.insert(tradingRules).values({
         ...input,
         userId: ctx.user.id,
-      });
-      return { id: Number(result[0].insertId) };
+      }).returning({ id: tradingRules.id });
+      return { id: Number(result[0].id) };
     }),
 
   listRules: authedQuery.query(async ({ ctx }) => {

@@ -43,8 +43,8 @@ export const psychologyRouter = createRouter({
       const result = await db.insert(tradePsychology).values({
         ...input,
         userId: ctx.user.id,
-      });
-      return { id: Number(result[0].insertId) };
+      }).returning({ id: tradePsychology.id });
+      return { id: Number(result[0].id) };
     }),
 
   getByTradeId: authedQuery
