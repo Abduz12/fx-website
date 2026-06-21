@@ -1,5 +1,9 @@
-import { handle } from "hono/netlify";
 import app from "../../api/boot";
 
-export const handler = handle(app);
-export default handle(app);
+export default async (req: Request, context: any) => {
+  return app.fetch(req, context);
+};
+
+export const config = {
+  path: "/api/*"
+};
