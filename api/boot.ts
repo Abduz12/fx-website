@@ -5,10 +5,24 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { getDb } from "./queries/connection";
+import { migrate } from "drizzle-orm/neon-http/migrator";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
+
+app.get("/api/setup-database", async (c) => {
+  try {
+    const db = getDb();
+    await migrate(db, { migrationsFolder: "./db/migrations" });
+    return c.json({ success: true, message: "Database migrated successfully!" });
+  } catch (error) {
+    console.error("Migration failed:", error);
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
 app.use("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
