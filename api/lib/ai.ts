@@ -56,7 +56,7 @@ function generateDefaultSuggestions(stats: any): string[] {
       ? `You had ${stats.maxConsecutiveLosses} consecutive losses. Consider taking a break after 2 consecutive losses to avoid revenge trading.`
       : "Your risk management seems solid. Keep your losses small.",
     stats.recentWinRate < 40
-      ? \`Your recent win rate is \${stats.recentWinRate}%. Review your entry criteria and ensure you're waiting for high-probability setups.\`
+      ? `Your recent win rate is ${stats.recentWinRate}%. Review your entry criteria and ensure you're waiting for high-probability setups.`
       : "Your recent win rate is good. Maintain discipline.",
   ];
 }
