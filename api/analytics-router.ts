@@ -3,6 +3,7 @@ import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { trades } from "@db/schema";
+import { generateTradingSuggestions } from "./lib/ai";
 
 export const analyticsRouter = createRouter({
   // Dashboard KPIs
@@ -415,9 +416,7 @@ export const analyticsRouter = createRouter({
     const recentWins = last20Trades.filter((t) => t.result === "Win").length;
     const recentWinRate = (recentWins / last20Trades.length) * 100;
 
-    return {
-      ready: true,
-      tradeCount: last20Trades.length,
+    const statsObj = {
       bestStrategy,
       bestStrategyPnL: Math.round(bestStratPnL * 100) / 100,
       bestMarket,
@@ -426,23 +425,15 @@ export const analyticsRouter = createRouter({
       bestSessionPnL: Math.round(bestSessionPnL * 100) / 100,
       maxConsecutiveLosses,
       recentWinRate: Math.round(recentWinRate * 100) / 100,
-      suggestions: [
-        bestStrategy
-          ? `Your best performing strategy is "${bestStrategy}" with $${Math.round(bestStratPnL * 100) / 100} profit. Consider focusing more on this strategy.`
-          : "Add strategy information to your trades for better insights.",
-        bestMarket
-          ? `You perform best trading ${bestMarket}. Consider specializing in this market.`
-          : null,
-        bestSession
-          ? `Your most profitable session is ${bestSession}. Focus your trading during this session.`
-          : null,
-        maxConsecutiveLosses >= 3
-          ? `You had ${maxConsecutiveLosses} consecutive losses. Consider taking a break after 2 consecutive losses to avoid revenge trading.`
-          : null,
-        recentWinRate < 40
-          ? `Your recent win rate is ${recentWinRate}%. Review your entry criteria and ensure you're waiting for high-probability setups.`
-          : null,
-      ].filter((s): s is string => s !== null),
+    };
+
+    const suggestions = await generateTradingSuggestions(statsObj, last20Trades);
+
+    return {
+      ready: true,
+      tradeCount: last20Trades.length,
+      ...statsObj,
+      suggestions,
     };
   }),
 });
