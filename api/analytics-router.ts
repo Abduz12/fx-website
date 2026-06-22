@@ -189,10 +189,34 @@ export const analyticsRouter = createRouter({
   // Performance by strategy
   getPerformanceByStrategy: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
+    
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+    const activeAccount = userAccounts[0];
+
+    let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+    if (activeAccount) {
+      const mainAccount = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.user.id))
+        .orderBy(asc(accounts.createdAt))
+        .limit(1);
+        
+      if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      } else {
+        conditions.push(eq(trades.accountId, activeAccount.id));
+      }
+    }
+
     const closedTrades = await db
       .select()
       .from(trades)
-      .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")));
+      .where(and(...conditions));
 
     const strategyStats: Record<
       string,
@@ -221,10 +245,34 @@ export const analyticsRouter = createRouter({
   // Performance by market
   getPerformanceByMarket: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
+    
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+    const activeAccount = userAccounts[0];
+
+    let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+    if (activeAccount) {
+      const mainAccount = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.user.id))
+        .orderBy(asc(accounts.createdAt))
+        .limit(1);
+        
+      if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      } else {
+        conditions.push(eq(trades.accountId, activeAccount.id));
+      }
+    }
+
     const closedTrades = await db
       .select()
       .from(trades)
-      .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")));
+      .where(and(...conditions));
 
     const marketStats: Record<
       string,
@@ -253,10 +301,34 @@ export const analyticsRouter = createRouter({
   // Performance by session
   getPerformanceBySession: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
+    
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+    const activeAccount = userAccounts[0];
+
+    let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+    if (activeAccount) {
+      const mainAccount = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.user.id))
+        .orderBy(asc(accounts.createdAt))
+        .limit(1);
+        
+      if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      } else {
+        conditions.push(eq(trades.accountId, activeAccount.id));
+      }
+    }
+
     const closedTrades = await db
       .select()
       .from(trades)
-      .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")));
+      .where(and(...conditions));
 
     const sessionStats: Record<
       string,
@@ -285,10 +357,34 @@ export const analyticsRouter = createRouter({
   // Performance by day of week
   getPerformanceByDayOfWeek: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
+    
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+    const activeAccount = userAccounts[0];
+
+    let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+    if (activeAccount) {
+      const mainAccount = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.user.id))
+        .orderBy(asc(accounts.createdAt))
+        .limit(1);
+        
+      if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      } else {
+        conditions.push(eq(trades.accountId, activeAccount.id));
+      }
+    }
+
     const closedTrades = await db
       .select()
       .from(trades)
-      .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")));
+      .where(and(...conditions));
 
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayStats: Record<string, { trades: number; wins: number; pnl: number }> = {};
@@ -319,21 +415,45 @@ export const analyticsRouter = createRouter({
       const startDate = `${input.year}-${String(input.month).padStart(2, "0")}-01`;
       const endDate = `${input.year}-${String(input.month).padStart(2, "0")}-31`;
 
+      const userAccounts = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+        .limit(1);
+      const activeAccount = userAccounts[0];
+
+      let conditions = [
+        eq(trades.userId, ctx.user.id),
+        eq(trades.status, "Closed"),
+        gte(trades.tradeDate, new Date(startDate)),
+        sql`${trades.tradeDate} <= ${endDate}`
+      ];
+
+      if (activeAccount) {
+        const mainAccount = await db
+          .select()
+          .from(accounts)
+          .where(eq(accounts.userId, ctx.user.id))
+          .orderBy(asc(accounts.createdAt))
+          .limit(1);
+          
+        if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+          conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+        } else {
+          conditions.push(eq(trades.accountId, activeAccount.id));
+        }
+      }
+
       const closedTrades = await db
         .select()
         .from(trades)
-        .where(
-          and(
-            eq(trades.userId, ctx.user.id),
-            eq(trades.status, "Closed"),
-            gte(trades.tradeDate, new Date(startDate)),
-            sql`${trades.tradeDate} <= ${endDate}`
-          )
-        );
+        .where(and(...conditions));
 
       const dailyPnL: Record<string, number> = {};
       closedTrades.forEach((t) => {
-        const date = String(t.tradeDate).split("T")[0];
+        // Correctly parse JS Date object to YYYY-MM-DD
+        const d = new Date(t.tradeDate as any);
+        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         dailyPnL[date] = (dailyPnL[date] || 0) + Number(t.profitLoss || 0);
       });
 
@@ -347,10 +467,34 @@ export const analyticsRouter = createRouter({
   // Monthly performance
   getMonthlyPerformance: authedQuery.query(async ({ ctx }) => {
     const db = getDb();
+    
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, ctx.user.id), eq(accounts.isDefault, true)))
+      .limit(1);
+    const activeAccount = userAccounts[0];
+
+    let conditions = [eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")];
+    if (activeAccount) {
+      const mainAccount = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, ctx.user.id))
+        .orderBy(asc(accounts.createdAt))
+        .limit(1);
+        
+      if (mainAccount[0] && activeAccount.id === mainAccount[0].id) {
+        conditions.push(sql`(${trades.accountId} = ${activeAccount.id} OR ${trades.accountId} IS NULL)`);
+      } else {
+        conditions.push(eq(trades.accountId, activeAccount.id));
+      }
+    }
+
     const closedTrades = await db
       .select()
       .from(trades)
-      .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")))
+      .where(and(...conditions))
       .orderBy(trades.tradeDate);
 
     const monthlyStats: Record<string, { trades: number; wins: number; pnl: number }> = {};

@@ -3,29 +3,16 @@ import { Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, Percent, 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/providers/trpc";
-import { getMarketMultiplier } from "@/lib/utils";
-
-const markets = [
-  "XAUUSD",
-  "EURUSD",
-  "GBPUSD",
-  "USDJPY",
-  "NAS100",
-  "US30",
-  "BTCUSD",
-  "ETHUSD",
-  "Other",
-];
 
 export default function Calculator() {
   const { data: stats } = trpc.analytics.getDashboardStats.useQuery();
   
   const [accountSize, setAccountSize] = useState("10000");
   const [riskPercent, setRiskPercent] = useState("1");
-  const [stopLoss, setStopLoss] = useState("");
-  const [entryPrice, setEntryPrice] = useState("");
-  const [takeProfit, setTakeProfit] = useState("");
-  const [market, setMarket] = useState("XAUUSD");
+  const [stopLoss, setStopLoss] = useState("50");
+  const [entryPrice, setEntryPrice] = useState("2000");
+  const [takeProfit, setTakeProfit] = useState("2100");
+  const [pipValue, setPipValue] = useState("10");
 
   useEffect(() => {
     if (stats?.currentBalance) {
@@ -43,7 +30,7 @@ export default function Calculator() {
 
   useEffect(() => {
     calculate();
-  }, [accountSize, riskPercent, stopLoss, entryPrice, takeProfit, market]);
+  }, [accountSize, riskPercent, stopLoss, entryPrice, takeProfit, pipValue]);
 
   const calculate = () => {
     const account = parseFloat(accountSize) || 0;
@@ -51,23 +38,20 @@ export default function Calculator() {
     const sl = parseFloat(stopLoss) || 0;
     const entry = parseFloat(entryPrice) || 0;
     const tp = parseFloat(takeProfit) || 0;
+    const pip = parseFloat(pipValue) || 0;
 
     const riskAmount = account * (risk / 100);
     const slDistance = Math.abs(entry - sl);
     const tpDistance = Math.abs(tp - entry);
 
-    // Lot size calculation exact same as TradeEntry.tsx
-    // riskAmount = slDistance * lotSize * multiplier
-    // lotSize = riskAmount / (slDistance * multiplier)
-    const multiplier = getMarketMultiplier(market);
-    
-    const lotSize = slDistance > 0 && multiplier > 0 ? riskAmount / (slDistance * multiplier) : 0;
-    const rewardAmount = tpDistance * lotSize * multiplier;
+    // Lot size calculation using Pip Value for ultimate broker compatibility
+    const lotSize = slDistance > 0 && pip > 0 ? riskAmount / (slDistance * pip) : 0;
+    const rewardAmount = tpDistance * lotSize * pip;
     const riskReward = slDistance > 0 ? tpDistance / slDistance : 0;
 
     setResults({
       riskAmount: Math.round(riskAmount * 100) / 100,
-      lotSize: Math.round(lotSize * 1000) / 1000,
+      lotSize: Math.round(lotSize * 10000) / 10000,
       potentialProfit: Math.round(rewardAmount * 100) / 100,
       riskReward: Math.round(riskReward * 100) / 100,
       rewardAmount: Math.round(rewardAmount * 100) / 100,
@@ -161,19 +145,16 @@ export default function Calculator() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  Market
+                  <DollarSign className="h-3 w-3" />
+                  Pip Value ($)
                 </label>
-                <select
-                  value={market}
-                  onChange={(e) => setMarket(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {markets.map((m) => (
-                    <option key={m} value={m} className="bg-background text-foreground">
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={pipValue}
+                  onChange={(e) => setPipValue(e.target.value)}
+                  placeholder="10"
+                />
               </div>
             </div>
           </CardContent>
