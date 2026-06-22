@@ -151,14 +151,13 @@ export default function CalendarPage() {
                 >
                   <span className="text-sm font-medium">{day.date > 0 ? day.date : ""}</span>
                   {day.status !== "neutral" && day.status !== "empty" && (
-                    <span
-                      className={`text-[10px] font-medium ${
-                        day.status === "profit" ? "text-green-500" : "text-red-500"
-                      }`}
-                    >
-                      {day.pnl > 0 ? "+" : ""}
-                      {day.pnl.toFixed(0)}
-                    </span>
+                    <div className="mt-1 flex justify-center">
+                      <div 
+                        className={`h-2 w-2 rounded-full ${
+                          day.status === "profit" ? "bg-green-500" : "bg-red-500"
+                        }`} 
+                      />
+                    </div>
                   )}
                 </button>
               ))}
