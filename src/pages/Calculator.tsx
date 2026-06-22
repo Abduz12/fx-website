@@ -9,9 +9,7 @@ export default function Calculator() {
   
   const [accountSize, setAccountSize] = useState("10000");
   const [riskPercent, setRiskPercent] = useState("1");
-  const [stopLoss, setStopLoss] = useState("50");
-  const [entryPrice, setEntryPrice] = useState("2000");
-  const [takeProfit, setTakeProfit] = useState("2100");
+  const [stopLossPips, setStopLossPips] = useState("50");
   const [pipValue, setPipValue] = useState("10");
 
   useEffect(() => {
@@ -23,38 +21,26 @@ export default function Calculator() {
   const [results, setResults] = useState({
     riskAmount: 0,
     lotSize: 0,
-    potentialProfit: 0,
-    riskReward: 0,
-    rewardAmount: 0,
   });
 
   useEffect(() => {
     calculate();
-  }, [accountSize, riskPercent, stopLoss, entryPrice, takeProfit, pipValue]);
+  }, [accountSize, riskPercent, stopLossPips, pipValue]);
 
   const calculate = () => {
     const account = parseFloat(accountSize) || 0;
     const risk = parseFloat(riskPercent) || 0;
-    const sl = parseFloat(stopLoss) || 0;
-    const entry = parseFloat(entryPrice) || 0;
-    const tp = parseFloat(takeProfit) || 0;
-    const pip = parseFloat(pipValue) || 0;
+    const pips = parseFloat(stopLossPips) || 0;
+    const pipVal = parseFloat(pipValue) || 0;
 
     const riskAmount = account * (risk / 100);
-    const slDistance = Math.abs(entry - sl);
-    const tpDistance = Math.abs(tp - entry);
 
-    // Lot size calculation using Pip Value for ultimate broker compatibility
-    const lotSize = slDistance > 0 && pip > 0 ? riskAmount / (slDistance * pip) : 0;
-    const rewardAmount = tpDistance * lotSize * pip;
-    const riskReward = slDistance > 0 ? tpDistance / slDistance : 0;
+    // Lot size calculation: Lot Size = Risk Amount / (Stop Loss Pips * Pip Value per standard lot)
+    const lotSize = pips > 0 && pipVal > 0 ? riskAmount / (pips * pipVal) : 0;
 
     setResults({
       riskAmount: Math.round(riskAmount * 100) / 100,
-      lotSize: Math.round(lotSize * 10000) / 10000,
-      potentialProfit: Math.round(rewardAmount * 100) / 100,
-      riskReward: Math.round(riskReward * 100) / 100,
-      rewardAmount: Math.round(rewardAmount * 100) / 100,
+      lotSize: Math.round(lotSize * 1000) / 1000,
     });
   };
 
@@ -107,40 +93,14 @@ export default function Calculator() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                   <TrendingDown className="h-3 w-3" />
-                  Stop Loss
+                  Stop Loss (Pips/Points)
                 </label>
                 <Input
                   type="number"
-                  step="0.01"
-                  value={stopLoss}
-                  onChange={(e) => setStopLoss(e.target.value)}
-                  placeholder="Entry - 50 pips"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  Entry Price
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={entryPrice}
-                  onChange={(e) => setEntryPrice(e.target.value)}
-                  placeholder="2000"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  Take Profit
-                </label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={takeProfit}
-                  onChange={(e) => setTakeProfit(e.target.value)}
-                  placeholder="2100"
+                  step="0.1"
+                  value={stopLossPips}
+                  onChange={(e) => setStopLossPips(e.target.value)}
+                  placeholder="50"
                 />
               </div>
               <div>
@@ -177,42 +137,12 @@ export default function Calculator() {
             />
             <ResultCard
               label="Lot Size"
-              value={results.lotSize.toFixed(2)}
+              value={results.lotSize.toFixed(3)}
               subtitle="Recommended position size"
               color="text-blue-500"
             />
-            <ResultCard
-              label="Potential Profit"
-              value={`$${results.potentialProfit.toLocaleString()}`}
-              subtitle="If take profit is hit"
-              color="text-green-500"
-            />
-            <ResultCard
-              label="Risk : Reward"
-              value={`1 : ${results.riskReward.toFixed(1)}`}
-              subtitle={results.riskReward >= 2 ? "Excellent R:R" : results.riskReward >= 1.5 ? "Good R:R" : "Poor R:R - consider better setup"}
-              color={results.riskReward >= 2 ? "text-green-500" : results.riskReward >= 1.5 ? "text-yellow-500" : "text-red-500"}
-            />
 
-            {/* Visual R:R Bar */}
-            <div className="pt-2">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-4 rounded-full bg-red-500/20 overflow-hidden flex">
-                  <div
-                    className="h-full bg-red-500 rounded-l-full"
-                    style={{ width: `${100 / (1 + results.riskReward)}%` }}
-                  />
-                  <div
-                    className="h-full bg-green-500 rounded-r-full"
-                    style={{ width: `${(100 * results.riskReward) / (1 + results.riskReward)}%` }}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between mt-1 text-[10px] text-muted-foreground">
-                <span>Risk: ${results.riskAmount}</span>
-                <span>Reward: ${results.rewardAmount}</span>
-              </div>
-            </div>
+
           </CardContent>
         </Card>
       </div>

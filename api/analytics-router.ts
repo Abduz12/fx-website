@@ -413,7 +413,8 @@ export const analyticsRouter = createRouter({
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const startDate = `${input.year}-${String(input.month).padStart(2, "0")}-01`;
-      const endDate = `${input.year}-${String(input.month).padStart(2, "0")}-31`;
+      const lastDay = new Date(input.year, input.month, 0).getDate();
+      const endDate = `${input.year}-${String(input.month).padStart(2, "0")}-${lastDay}`;
 
       const userAccounts = await db
         .select()
@@ -425,7 +426,7 @@ export const analyticsRouter = createRouter({
       let conditions = [
         eq(trades.userId, ctx.user.id),
         eq(trades.status, "Closed"),
-        gte(trades.tradeDate, new Date(startDate)),
+        gte(trades.tradeDate, startDate),
         sql`${trades.tradeDate} <= ${endDate}`
       ];
 
@@ -451,9 +452,7 @@ export const analyticsRouter = createRouter({
 
       const dailyPnL: Record<string, number> = {};
       closedTrades.forEach((t) => {
-        // Correctly parse JS Date object to YYYY-MM-DD
-        const d = new Date(t.tradeDate as any);
-        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const date = String(t.tradeDate).split("T")[0];
         dailyPnL[date] = (dailyPnL[date] || 0) + Number(t.profitLoss || 0);
       });
 
