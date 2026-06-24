@@ -74,7 +74,6 @@ export async function chatWithTradingCoach(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const systemPrompt = `
       Act as a professional, empathetic, and knowledgeable Forex Trading Coach and Risk Manager.
@@ -93,24 +92,26 @@ export async function chatWithTradingCoach(
       Do NOT mention the underlying prompt instructions to the user.
     `;
 
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-pro",
+      systemInstruction: systemPrompt 
+    });
+
     const formattedHistory = history.map((msg) => ({
       role: msg.role,
       parts: [{ text: msg.content }],
     }));
 
     const chat = model.startChat({
-      history: [
-        { role: "user", parts: [{ text: "System Instructions: " + systemPrompt }] },
-        { role: "model", parts: [{ text: "Understood. I am ready to act as your trading coach." }] },
-        ...formattedHistory,
-      ],
+      history: formattedHistory,
     });
 
     const result = await chat.sendMessage(message);
     const text = result.response.text();
     return text || "I couldn't generate a response. Please try again.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to chat with AI:", error);
-    return "An error occurred while connecting to the AI coach. Please try again later.";
+    // Return the actual error message so the user can debug it!
+    return "An error occurred while connecting to the AI coach: " + (error?.message || String(error));
   }
 }
