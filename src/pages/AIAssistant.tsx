@@ -1,21 +1,39 @@
 import { trpc } from "@/providers/trpc";
+import { useState, useRef, useEffect } from "react";
 import {
   Brain,
   AlertTriangle,
   Target,
   Zap,
-  Lightbulb,
   BarChart3,
   Activity,
   Shield,
-  ChevronRight,
+  Send,
+  User,
+  Bot,
+  Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+type Message = { role: "user" | "model"; content: string };
 
 export default function AIAssistant() {
   const { data: analysis } = trpc.analytics.getAIAnalysis.useQuery();
   const { data: stats } = trpc.analytics.getDashboardStats.useQuery();
+  const chatMutation = trpc.analytics.chatWithAI.useMutation();
+
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "model", content: "Hello! I am your AI Trading Coach. I have reviewed your trading history. How can I help you improve your trading today?" }
+  ]);
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   if (!analysis) {
     return (
@@ -24,6 +42,31 @@ export default function AIAssistant() {
       </div>
     );
   }
+
+  const handleSend = async () => {
+    if (!input.trim() || chatMutation.isPending) return;
+
+    const userMessage: Message = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+
+    try {
+      const result = await chatMutation.mutateAsync({
+        message: userMessage.content,
+        history: messages.slice(1), // Exclude the initial greeting
+      });
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", content: result.response },
+      ]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "model", content: "Sorry, I encountered an error connecting to the AI. Please try again." },
+      ]);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -34,7 +77,7 @@ export default function AIAssistant() {
           AI Trading Assistant
         </h1>
         <p className="text-sm text-muted-foreground">
-          Personalized insights based on your trading data
+          Your personal AI trading coach powered by Gemini Pro
         </p>
       </div>
 
@@ -47,77 +90,98 @@ export default function AIAssistant() {
           </AlertDescription>
         </Alert>
       ) : (
-        <>
-          {/* Key Insights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <InsightCard
-              title="Best Strategy"
-              value={analysis.bestStrategy || "N/A"}
-              subtitle={`$${analysis.bestStrategyPnL || 0} profit`}
-              icon={Target}
-              color="text-green-500"
-              bgColor="bg-green-500/10"
-            />
-            <InsightCard
-              title="Best Market"
-              value={analysis.bestMarket || "N/A"}
-              subtitle={`$${analysis.bestMarketPnL || 0} profit`}
-              icon={BarChart3}
-              color="text-blue-500"
-              bgColor="bg-blue-500/10"
-            />
-            <InsightCard
-              title="Best Session"
-              value={analysis.bestSession || "N/A"}
-              subtitle={`$${analysis.bestSessionPnL || 0} profit`}
-              icon={Zap}
-              color="text-yellow-500"
-              bgColor="bg-yellow-500/10"
-            />
-          </div>
-
-          {/* Suggestions */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Lightbulb className="h-4 w-4 text-yellow-500" />
-                Personalized Suggestions
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          
+          {/* Left Column: Chat Interface */}
+          <Card className="xl:col-span-2 flex flex-col h-[700px]">
+            <CardHeader className="pb-3 border-b border-border/50">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                Chat with Trading Coach
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {analysis.suggestions && analysis.suggestions.length > 0 ? (
-                analysis.suggestions.map((suggestion, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 rounded-md border border-border p-3 hover:bg-accent/30 transition-colors"
-                  >
-                    <ChevronRight className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <p className="text-sm">{suggestion}</p>
+            
+            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-3 ${
+                    msg.role === "user" ? "flex-row-reverse" : ""
+                  }`}
+                >
+                  <div className={`flex-shrink-0 rounded-full p-2 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                    {msg.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Continue trading to receive personalized suggestions.
-                </p>
+                  <div
+                    className={`rounded-lg px-4 py-2 max-w-[80%] ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/50 text-foreground"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {chatMutation.isPending && (
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 rounded-full p-2 bg-muted">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="rounded-lg px-4 py-3 bg-muted/50 text-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">AI is thinking...</span>
+                  </div>
+                </div>
               )}
+              <div ref={messagesEndRef} />
             </CardContent>
+
+            <CardFooter className="pt-3 border-t border-border/50">
+              <form
+                className="flex w-full items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+              >
+                <Input
+                  placeholder="Ask for trade suggestions, strategy advice, etc..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={chatMutation.isPending}
+                  className="flex-1"
+                />
+                <Button type="submit" size="icon" disabled={!input.trim() || chatMutation.isPending}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
+            </CardFooter>
           </Card>
 
-          {/* Performance Stats */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Consecutive Losses Warning */}
-            {(analysis.maxConsecutiveLosses || 0) >= 3 && (
-              <Alert className="border-red-500/30 bg-red-500/5 lg:col-span-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <AlertTitle>Warning: Consecutive Losses Detected</AlertTitle>
-                <AlertDescription>
-                  You had {analysis.maxConsecutiveLosses} consecutive losses in your last {analysis.tradeCount} trades.
-                  Consider reviewing your strategy and taking breaks after 2 consecutive losses to avoid revenge trading.
-                </AlertDescription>
-              </Alert>
-            )}
+          {/* Right Column: Key Insights & Performance */}
+          <div className="space-y-6">
+            {/* Key Insights */}
+            <div className="grid grid-cols-2 gap-3">
+              <InsightCard
+                title="Best Strategy"
+                value={analysis.bestStrategy || "N/A"}
+                subtitle={`$${analysis.bestStrategyPnL || 0} profit`}
+                icon={Target}
+                color="text-green-500"
+                bgColor="bg-green-500/10"
+              />
+              <InsightCard
+                title="Best Session"
+                value={analysis.bestSession || "N/A"}
+                subtitle={`$${analysis.bestSessionPnL || 0} profit`}
+                icon={Zap}
+                color="text-yellow-500"
+                bgColor="bg-yellow-500/10"
+              />
+            </div>
 
-            {/* Recent Performance */}
+            {/* Performance Stats */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -132,7 +196,7 @@ export default function AIAssistant() {
                   trend={(analysis.recentWinRate || 0) >= 50 ? "positive" : "negative"}
                 />
                 <MetricRow
-                  label="Max Consecutive Losses"
+                  label="Max Consec. Losses"
                   value={String(analysis.maxConsecutiveLosses || 0)}
                   trend={(analysis.maxConsecutiveLosses || 0) >= 3 ? "negative" : "neutral"}
                 />
@@ -196,27 +260,16 @@ export default function AIAssistant() {
                   </div>
                 </div>
 
-                <div className="rounded-md bg-accent/30 p-3 text-sm space-y-1">
-                  <p className="font-medium">Recommendations:</p>
-                  <ul className="space-y-1 text-muted-foreground">
-                    {(analysis.recentWinRate || 0) < 50 && (
-                      <li>Focus on high-probability setups only</li>
-                    )}
-                    {(analysis.maxConsecutiveLosses || 0) >= 3 && (
-                      <li>Implement a mandatory break after 2 consecutive losses</li>
-                    )}
-                    {(stats?.profitFactor || 0) < 1.5 && (
-                      <li>Improve your risk-reward ratio on entries</li>
-                    )}
-                    {(analysis.recentWinRate || 0) >= 50 && (stats?.profitFactor || 0) >= 1.5 && (
-                      <li>Your performance is good. Keep following your system.</li>
-                    )}
-                  </ul>
+                <div className="rounded-md bg-accent/30 p-3 text-sm space-y-1 mt-4">
+                  <p className="font-medium text-xs uppercase tracking-wider text-muted-foreground mb-2">Coach's Advice</p>
+                  <p className="text-sm">
+                    Use the chat interface to ask me questions about your trading performance, risk management, or specific setups!
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

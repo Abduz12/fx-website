@@ -3,7 +3,7 @@ import { eq, and, desc, sql, gte, asc } from "drizzle-orm";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { trades, accounts } from "@db/schema";
-import { generateTradingSuggestions } from "./lib/ai";
+import { generateTradingSuggestions, chatWithTradingCoach } from "./lib/ai";
 
 export const analyticsRouter = createRouter({
   // Dashboard KPIs
@@ -623,4 +623,113 @@ export const analyticsRouter = createRouter({
       suggestions,
     };
   }),
+
+  // AI Chat Endpoint
+  chatWithAI: authedQuery
+    .input(
+      z.object({
+        message: z.string(),
+        history: z.array(
+          z.object({
+            role: z.enum(["user", "model"]),
+            content: z.string(),
+          })
+        ).default([]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const last20Trades = await db
+        .select()
+        .from(trades)
+        .where(and(eq(trades.userId, ctx.user.id), eq(trades.status, "Closed")))
+        .orderBy(desc(trades.tradeDate))
+        .limit(20);
+
+      // Analyze most profitable strategy
+      const strategyPnL: Record<string, { pnl: number; count: number }> = {};
+      last20Trades.forEach((t) => {
+        if (!strategyPnL[t.strategy]) strategyPnL[t.strategy] = { pnl: 0, count: 0 };
+        strategyPnL[t.strategy].pnl += Number(t.profitLoss || 0);
+        strategyPnL[t.strategy].count++;
+      });
+
+      let bestStrategy = "";
+      let bestStratPnL = -Infinity;
+      Object.entries(strategyPnL).forEach(([strat, data]) => {
+        if (data.pnl > bestStratPnL) {
+          bestStratPnL = data.pnl;
+          bestStrategy = strat;
+        }
+      });
+
+      // Analyze most profitable market
+      const marketPnL: Record<string, { pnl: number; count: number }> = {};
+      last20Trades.forEach((t) => {
+        if (!marketPnL[t.market]) marketPnL[t.market] = { pnl: 0, count: 0 };
+        marketPnL[t.market].pnl += Number(t.profitLoss || 0);
+        marketPnL[t.market].count++;
+      });
+
+      let bestMarket = "";
+      let bestMarketPnL = -Infinity;
+      Object.entries(marketPnL).forEach(([market, data]) => {
+        if (data.pnl > bestMarketPnL) {
+          bestMarketPnL = data.pnl;
+          bestMarket = market;
+        }
+      });
+
+      // Analyze session performance
+      const sessionPnL: Record<string, { pnl: number; count: number }> = {};
+      last20Trades.forEach((t) => {
+        if (!sessionPnL[t.session]) sessionPnL[t.session] = { pnl: 0, count: 0 };
+        sessionPnL[t.session].pnl += Number(t.profitLoss || 0);
+        sessionPnL[t.session].count++;
+      });
+
+      let bestSession = "";
+      let bestSessionPnL = -Infinity;
+      Object.entries(sessionPnL).forEach(([session, data]) => {
+        if (data.pnl > bestSessionPnL) {
+          bestSessionPnL = data.pnl;
+          bestSession = session;
+        }
+      });
+
+      // Check for consecutive losses
+      let maxConsecutiveLosses = 0;
+      let currentConsecutiveLosses = 0;
+      [...last20Trades].reverse().forEach((t) => {
+        if (t.result === "Loss") {
+          currentConsecutiveLosses++;
+          if (currentConsecutiveLosses > maxConsecutiveLosses) {
+            maxConsecutiveLosses = currentConsecutiveLosses;
+          }
+        } else {
+          currentConsecutiveLosses = 0;
+        }
+      });
+
+      // Recent win rate
+      const recentWins = last20Trades.filter((t) => t.result === "Win").length;
+      const recentWinRate = last20Trades.length > 0 ? (recentWins / last20Trades.length) * 100 : 0;
+
+      const statsObj = {
+        bestStrategy,
+        bestStrategyPnL: Math.round(bestStratPnL * 100) / 100,
+        bestMarket,
+        bestMarketPnL: Math.round(bestMarketPnL * 100) / 100,
+        bestSession,
+        bestSessionPnL: Math.round(bestSessionPnL * 100) / 100,
+        maxConsecutiveLosses,
+        recentWinRate: Math.round(recentWinRate * 100) / 100,
+      };
+
+      const response = await chatWithTradingCoach(input.message, input.history, statsObj, last20Trades);
+
+      return {
+        response,
+      };
+    }),
 });
