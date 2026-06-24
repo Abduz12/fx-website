@@ -10,7 +10,7 @@ export async function generateTradingSuggestions(stats: any, trades: any[]): Pro
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     
     // Prepare data for the prompt
     const prompt = `
@@ -74,7 +74,7 @@ export async function chatWithTradingCoach(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const systemPrompt = `
       Act as a professional, empathetic, and knowledgeable Forex Trading Coach and Risk Manager.
